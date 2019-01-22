@@ -4,6 +4,7 @@ except ImportError:
     import xml.etree.ElementTree as ET
 import pickle
 import collections
+import numpy as np
 
 Interactions = collections.namedtuple('Interactions', ['e1s', 'e2s', 'type'])
 
@@ -43,6 +44,9 @@ class PreProcessor:
 
         # -------------- entity and tri offsets -------------- #
         self.interactions = []
+        # ---------------------------------------------------- #
+
+        self.inputs = []
 
     def read_labels(self):
         """
@@ -107,3 +111,53 @@ class PreProcessor:
             self.interactions.append(Interactions(line[0], line[1], line[2]))
 
         rf.close()
+
+    def read_word_idx(self):
+        rf = open(self.resource_dir + "_input", 'r', encoding='utf-8')
+
+        while True:
+            line = rf.readline()
+            if line == "":
+                break
+            line = line.strip("\n").strip().split()
+
+            line = [int(x) for x in line]
+
+            self.inputs.append(line)
+
+        rf.close()
+
+    def write_data(self):
+        wf = open(self.output_dir + "word_idx.pk", 'wb')
+        pickle.dump(np.array(self.inputs), wf)
+        wf.close()
+
+    def __call__(self, *args, **kwargs):
+        self.read_labels()
+        self.read_offset_and_trigger_index()
+        self.read_interactions()
+        self.read_word_idx()
+
+        self.write_data()
+
+    @staticmethod
+    def read_ids(file):
+        rf = open(file, 'r', encoding='utf-8')
+        type_idx = {}
+        while True:
+            line = rf.readline().strip("\n")
+            if line == "":
+                break
+            line = line.split("\t")
+            type_idx[line[0]] = int(line[1])
+        rf.close()
+
+        idx_type = ["_" for i in range(len(type_idx))]
+        for word, index in type_idx.items():
+            idx_type[index] = word
+
+        return type_idx, idx_type
+
+
+if __name__ == '__main__':
+    pass
