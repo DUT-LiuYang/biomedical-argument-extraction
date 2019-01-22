@@ -3,6 +3,9 @@ try:
 except ImportError:
     import xml.etree.ElementTree as ET
 import pickle
+import collections
+
+Interactions = collections.namedtuple('Interactions', ['e1s', 'e2s', 'type'])
 
 
 class PreProcessor:
@@ -32,9 +35,14 @@ class PreProcessor:
         self.entities = []
         # ---------------------------------------------------- #
 
+        # -------------- entity and tri offsets -------------- #
         self.offsets = []
         self.trigger_offsets_ids = []
         self.entity_offsets_ids = []
+        # ---------------------------------------------------- #
+
+        # -------------- entity and tri offsets -------------- #
+        self.interactions = []
 
     def read_labels(self):
         """
@@ -75,10 +83,27 @@ class PreProcessor:
             for i in range(4):
                 line[i] = line[i].split()
 
-            for offset, tri_id in zip(line[1], line[2]):
-                self.trigger_offsets_ids.append([offset, tri_id])
+            self.trigger_offsets_ids.append([line[1], line[2]])
+            # for offset, tri_id in zip(line[1], line[2]):
+            #     self.trigger_offsets_ids.append([offset, tri_id])
 
-            for offset, entity_id in zip(line[3], line[4]):
-                self.entity_offsets_ids.append([offset, entity_id])
+            self.entity_offsets_ids.append([line[3], line[4]])
+            # for offset, entity_id in zip(line[3], line[4]):
+            #     self.entity_offsets_ids.append([offset, entity_id])
+
+        rf.close()
+
+    def read_interactions(self):
+        rf = open(self.resource_dir + "interaction", 'r', encoding='utf-8')
+        while True:
+            line = rf.readline()
+            if line == "":
+                break
+            line = line.strip("\n").split("#")
+
+            for i in range(3):
+                line[i] = line[i].split()
+
+            self.interactions.append(Interactions(line[0], line[1], line[2]))
 
         rf.close()
