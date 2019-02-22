@@ -20,6 +20,8 @@ class DataIntegration:
         self.train = train
         # ---------------------------------------------------- #
 
+        self.data = None
+
     def initialization(self):
         """
         read data.
@@ -48,19 +50,33 @@ class DataIntegration:
         entity_offsets_ids = pickle.load(rf)
         rf.close()
 
+        rf = open(self.data_dir + "offsets.pk", 'rb')
+        offsets = pickle.load(rf)
+        rf.close()
+
         sen_num = len(entity_labels)
+        id_labels = []
         for i in range(sen_num):
-            tri_id_label, tri_offsets_ids = self.get_id_label_type(char_offsets=token_offsets[i],
+            tri_id_label, tri_offsets_ids = self.get_id_label_type(char_offsets=offsets[i],
                                                                    offsets=trigger_offsets_ids[0],
                                                                    ids=trigger_offsets_ids[1])
 
-            entity_id_label, _ = self.get_id_label_type(char_offsets=token_offsets[i],
+            entity_id_label, _ = self.get_id_label_type(char_offsets=offsets[i],
                                                         offsets=entity_offsets_ids[0],
                                                         ids=entity_offsets_ids[1])
 
+            id_label = []
+            for tl, el in zip(tri_id_label, entity_id_label):
+                if tl != "O":
+                    id_label.append(tl)
+                elif el != "O":
+                    id_label.append(el)
+                else:
+                    id_label.append("O")
+            id_labels.append(id_label)
         # -------------------------------------------------------------------
 
-
+        self.data = data_set(true_tri_labels, predicted_tri_labels, entity_labels, id_labels)
 
         return None
 
@@ -72,14 +88,14 @@ class DataIntegration:
         :param ids:
         :return:
         """
-        label = ""
+        label = []
         j = 0
         signal = False
         offset_ids = {}
 
         if len(offsets) == 0:
             for i in range(len(char_offsets)):
-                label += "O "
+                label.append("O")
             return label, offset_ids
 
         for i in range(len(char_offsets)):
@@ -105,10 +121,14 @@ class DataIntegration:
                         label_type = "B-" + ids[j]
                         offset_ids[char_offsets[i]] = ids[j]
                         signal = True
-                    label += " " + label_type
+                    label.append(label_type)
                 else:
-                    label += " O"
+                    label.append("O")
             else:
-                label += " O"
-        # print(label)
+                label.append("O")
+
         return label, offset_ids
+
+
+if __name__ == '__main__':
+    pass
