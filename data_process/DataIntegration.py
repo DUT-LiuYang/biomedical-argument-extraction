@@ -2,7 +2,7 @@ import collections
 import pickle
 
 Interactions = collections.namedtuple('Interactions', ['e1s', 'e2s', 'type'])
-data_set = collections.namedtuple('data_set', ['true_tri_labels', 'predicted_tri_labels', 'entity_labels', 'ids'])
+data_set = collections.namedtuple('data_set', ['true_tri_labels', 'predicted_tri_labels', 'entity_labels', 'ids', 'offsets'])
 
 
 class DataIntegration:
@@ -21,8 +21,16 @@ class DataIntegration:
         # ---------------------------------------------------- #
 
         self.data = None
+        self.interactions = None
+        self.duplicated_dict = {}
 
-    def initialization(self):
+        self.initialize_data()
+
+        rf = open(self.data_dir + "interactions.pk", 'rb')
+        self.interactions = pickle.load(rf)
+        rf.close()
+
+    def initialize_data(self):
         """
         read data.
         :return: None
@@ -76,7 +84,7 @@ class DataIntegration:
             id_labels.append(id_label)
         # -------------------------------------------------------------------
 
-        self.data = data_set(true_tri_labels, predicted_tri_labels, entity_labels, id_labels)
+        self.data = data_set(true_tri_labels, predicted_tri_labels, entity_labels, id_labels, offsets)
 
         return None
 
@@ -129,6 +137,26 @@ class DataIntegration:
 
         return label, offset_ids
 
+    def construct_data(self):
+        temp = 1
+        label_idx_dict = {}
+
+        ids_label_dict = {}
+
+        for e1s, e2s, types in zip(self.interactions[0], self.interactions[1], self.interactions[2]):
+            for e1, e2, label in zip(e1s, e2s, types):
+                key = e1 + e2
+                if label in label_idx_dict.keys():
+                    ids_label_dict[key] = label_idx_dict[label]
+                else:
+                    label_idx_dict[label] = temp
+                    ids_label_dict[key] = temp
+                    temp += 1
+
+        for key, value in label_idx_dict.items():
+            print(key + " " + str(value))
+
+        return label_idx_dict, ids_label_dict
 
 if __name__ == '__main__':
     pass
