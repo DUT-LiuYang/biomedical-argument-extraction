@@ -30,6 +30,10 @@ class DataIntegration:
         self.interactions = pickle.load(rf)
         rf.close()
 
+        rf = open(self.data_dir + "duplicated_ids.pk", 'rb')
+        self.duplicated_dict = pickle.load(rf)
+        rf.close()
+
     def initialize_data(self):
         """
         read data.
@@ -137,7 +141,7 @@ class DataIntegration:
 
         return label, offset_ids
 
-    def construct_data(self):
+    def construct_interaction_dict(self):
         temp = 1
         label_idx_dict = {}
 
@@ -157,6 +161,44 @@ class DataIntegration:
             print(key + " " + str(value))
 
         return label_idx_dict, ids_label_dict
+
+    def construct_structure_dict(self):
+
+        print("reading ")
+
+        rf = open(self.resource_dir + "structure.txt", 'r', encoding='utf-8')
+
+        entity_type_idx_dict = {}
+        num = 0
+
+        trigger_argument_type_dict = {}
+
+        while True:
+            line = rf.readline()
+            if line == "":
+                break
+            if "ENTITY" in line[0:6]:
+                temp = line.strip("\n").split(" ")[1]
+                entity_type_idx_dict[temp] = num
+                num += 1
+            elif "EVENT" in line[0:6]:
+                line = line.strip("\n").split("\t")
+                temp = line[0].split()[1]
+
+                # ---
+                type_set = set()
+                line = line[1:]
+                for record in line:
+                    record = record.split("] ")[1].split(",")
+                    for label in record:
+                        type_set.add(label)
+
+                trigger_argument_type_dict[temp] = type_set
+
+        rf.close()
+
+        return trigger_argument_type_dict
+
 
 if __name__ == '__main__':
     pass
