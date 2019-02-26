@@ -86,10 +86,11 @@ class PreProcessor:
             if line == "":
                 break
             line = line.strip("\n").split("#")
-            self.offsets.append(line[0].split(" "))
 
-            for i in range(4):
+            for i in range(5):
                 line[i] = line[i].split()
+
+            self.offsets.append(line[0])
 
             self.trigger_offsets_ids.append([line[1], line[2]])
             # for offset, tri_id in zip(line[1], line[2]):
@@ -103,6 +104,11 @@ class PreProcessor:
 
     def read_interactions(self):
         rf = open(self.resource_dir + "interaction.txt", 'r', encoding='utf-8')
+
+        e1s = []
+        e2s = []
+        types = []
+
         while True:
             line = rf.readline()
             if line == "":
@@ -112,8 +118,12 @@ class PreProcessor:
             for i in range(3):
                 line[i] = line[i].split()
 
-            self.interactions.append(Interactions(line[0], line[1], line[2]))
+            e1s.append(line[0])
+            e2s.append(line[1])
+            types.append(line[2])
 
+        self.interactions = Interactions(e1s, e2s, types)
+        print(len(self.interactions))
         rf.close()
 
     def read_word_idx(self):
@@ -191,8 +201,8 @@ class PreProcessor:
         self.read_word_idx()
         self.read_duplicated_ids()
 
-        self.get_entity_inputs()
-        self.get_trigger_inputs()
+        # self.get_entity_inputs()
+        # self.get_trigger_inputs()
 
         self.write_data()
 
@@ -242,7 +252,7 @@ class PreProcessor:
 
         for index, line in enumerate(self.triggers):
             self.triggers[index] = [trigger_class_idx[x] for x in line]
-
+            print(str(self.triggers[index]))
     # ===================================================================
 
 
