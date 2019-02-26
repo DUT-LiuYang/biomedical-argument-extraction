@@ -7,15 +7,20 @@ data_set = collections.namedtuple('data_set', ['true_tri_labels', 'predicted_tri
 
 class DataIntegration:
 
-    def __init__(self, train):
+    all_tri_type = ["Regulation", "Cell_proliferation", "Gene_expression", "Binding", "Positive_regulation",
+                    "Transcription", "Dephosphorylation", "Development", "Blood_vessel_development",
+                    "Catabolism", "Negative_regulation", "Remodeling", "Breakdown", "Localization",
+                    "Synthesis", "Death", "Planned_process", "Growth", "Phosphorylation"]
+
+    def __init__(self, train, label_idx=None):
         # ------------- dirs used in this part --------------- #
         self.resource_dir = "../resource/"
         self.data_dir = "../data/"
         if train:
-            self.resource_dir += "train_"
+            # self.resource_dir += "train_"
             self.data_dir += "train_"
         else:
-            self.resource_dir += "test_"
+            # self.resource_dir += "test_"
             self.data_dir += "test_"
         self.train = train
         # ---------------------------------------------------- #
@@ -34,21 +39,32 @@ class DataIntegration:
         self.duplicated_dict = pickle.load(rf)
         rf.close()
 
+        self.label_idx_dict, self.ids_label_dict = self.construct_interaction_dict(label_idx)
+        self.trigger_argument_type_dict = self.construct_structure_dict()
+
     def initialize_data(self):
         """
         read data.
         :return: None
         """
+        # BIO labels. no pad.
         rf = open(self.data_dir + "trigger_inputs.pk", 'rb')
         true_tri_labels = pickle.load(rf)
         rf.close()
 
+        # BIO labels. pad for test set.
         predicted_tri_labels = None
-        if self.train:
-            rf = open(self.data_dir + "predicted_trigger_inputs.pk", 'rb')
-            predicted_tri_labels = pickle.load(rf)
+        if not self.train:
+            predicted_tri_labels = []
+            rf = open(self.resource_dir + "F_81.59682899207247_24.txt", 'r', encoding='utf-8')
+            while True:
+                line = rf.readline()
+                if line == "":
+                    break
+                predicted_tri_labels.append(line.strip("\n").strip(" ").split(" "))
             rf.close()
 
+        # BIO labels. no pad.
         rf = open(self.data_dir + "entity_inputs.pk", 'rb')
         entity_labels = pickle.load(rf)
         rf.close()
@@ -70,12 +86,12 @@ class DataIntegration:
         id_labels = []
         for i in range(sen_num):
             tri_id_label, tri_offsets_ids = self.get_id_label_type(char_offsets=offsets[i],
-                                                                   offsets=trigger_offsets_ids[0],
-                                                                   ids=trigger_offsets_ids[1])
+                                                                   offsets=trigger_offsets_ids[i][0],
+                                                                   ids=trigger_offsets_ids[i][1])
 
             entity_id_label, _ = self.get_id_label_type(char_offsets=offsets[i],
-                                                        offsets=entity_offsets_ids[0],
-                                                        ids=entity_offsets_ids[1])
+                                                        offsets=entity_offsets_ids[i][0],
+                                                        ids=entity_offsets_ids[i][1])
 
             id_label = []
             for tl, el in zip(tri_id_label, entity_id_label):
@@ -141,23 +157,39 @@ class DataIntegration:
 
         return label, offset_ids
 
-    def construct_interaction_dict(self):
-        temp = 1
-        label_idx_dict = {}
+    def construct_interaction_dict(self, label_idx):
+
+        if label_idx is None:
+            temp = 1
+            label_idx_dict = {}
+            label_sum_dict = {}
+        else:
+            temp = len(label_idx) + 1
+            label_idx_dict = label_idx
+            label_sum_dict = {}
+            for key in label_idx_dict.keys():
+                label_sum_dict[key] = 0
 
         ids_label_dict = {}
 
+        # for document
         for e1s, e2s, types in zip(self.interactions[0], self.interactions[1], self.interactions[2]):
+            # for sentence
             for e1, e2, label in zip(e1s, e2s, types):
                 key = e1 + e2
                 if label in label_idx_dict.keys():
                     ids_label_dict[key] = label_idx_dict[label]
+                    label_sum_dict[label] += 1
                 else:
                     label_idx_dict[label] = temp
                     ids_label_dict[key] = temp
+                    label_sum_dict[label] = 1
                     temp += 1
 
         for key, value in label_idx_dict.items():
+            print(key + " " + str(value))
+
+        for key, value in label_sum_dict.items():
             print(key + " " + str(value))
 
         return label_idx_dict, ids_label_dict
@@ -185,6 +217,9 @@ class DataIntegration:
                 line = line.strip("\n").split("\t")
                 temp = line[0].split()[1]
 
+                if temp not in self.all_tri_type:
+                    continue
+
                 # ---
                 type_set = set()
                 line = line[1:]
@@ -201,4 +236,5 @@ class DataIntegration:
 
 
 if __name__ == '__main__':
-    pass
+    di_train = DataIntegration(train=True)
+    di_test = DataIntegration(train=False, label_idx=di_train.label_idx_dict)
