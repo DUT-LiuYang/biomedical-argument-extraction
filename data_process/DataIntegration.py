@@ -29,8 +29,6 @@ class DataIntegration:
         self.interactions = None
         self.duplicated_dict = {}
 
-        self.initialize_data()
-
         rf = open(self.data_dir + "interactions.pk", 'rb')
         self.interactions = pickle.load(rf)
         rf.close()
@@ -38,6 +36,8 @@ class DataIntegration:
         rf = open(self.data_dir + "duplicated_ids.pk", 'rb')
         self.duplicated_dict = pickle.load(rf)
         rf.close()
+
+        self.initialize_data()
 
         self.label_idx_dict, self.ids_label_dict = self.construct_interaction_dict(label_idx)
         self.trigger_argument_type_dict = self.construct_structure_dict()
@@ -102,8 +102,35 @@ class DataIntegration:
                 else:
                     id_label.append("O")
             id_labels.append(id_label)
+            # print(id_label)
         # -------------------------------------------------------------------
 
+        # print(str(self.duplicated_dict.keys()))
+
+        for i, sen in enumerate(id_labels):
+            signal = False
+            for j, id in enumerate(sen):
+
+                if id == "O":
+                    continue
+
+                offset = offsets[i][j]
+
+                if offset in self.duplicated_dict.keys():
+                    signal = True
+                    # print(offset)
+                    index = id.find(".e")
+                    sen_id = id[2:index]
+
+                    duplicated_ids = self.duplicated_dict[offset]
+                    for did in duplicated_ids:
+                        # print(id_labels[i][j] + " " + sen_id)
+                        if sen_id in did:
+                            id_labels[i][j] += "*" + did
+                            # print(id_labels[i][j] + "+")
+                    # print(id_labels[i][j])
+            # if signal:
+            #     print(id_labels[i])
         self.data = data_set(true_tri_labels, predicted_tri_labels, entity_labels, id_labels, offsets)
 
         return None
@@ -233,6 +260,31 @@ class DataIntegration:
         rf.close()
 
         return trigger_argument_type_dict
+
+    def construct_dataset(self, index=0):
+
+        trigger_words = []
+        trigger_types = []
+        sentence_words = []
+        positions = []
+        labels = []
+
+        for tri_labels, entity_labels, ids, offsets in zip(self.data[index], self.data[2],
+                                                           self.data[3], self.data[4]):
+            for i, tri_label in enumerate(tri_labels):
+                if tri_label == "O":
+                    continue
+
+                event = tri_label.split("-")[1]
+                if event in self.all_tri_type:
+                    if tri_label[0] == "B":
+                        pass
+                    else:   # S
+                        trigger_words.append()
+                        trigger_types.append(event)
+                        tid = ids[i][2:]
+                        for j, id in enumerate(ids):
+                            pass
 
 
 if __name__ == '__main__':
