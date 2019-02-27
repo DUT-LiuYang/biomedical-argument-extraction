@@ -280,11 +280,27 @@ class DataIntegration:
                     if tri_label[0] == "B":
                         pass
                     else:   # S
-                        trigger_words.append()
+                        trigger_words.append()  # ---
                         trigger_types.append(event)
-                        tid = ids[i][2:]
-                        for j, id in enumerate(ids):
-                            pass
+                        tids = ids[i][2:].split("*") # a list, contains all ids of current trigger candidate.
+
+                        for tid in tids:
+                            for j, id in enumerate(ids):
+
+                                sentence_words.append()  # ---
+
+                                if id == "O" or i == j:
+                                    labels.append()  # ---
+                                    continue
+
+                                temp = id[2:].split("*")
+
+                                for aid in temp:
+                                    key = tid + aid
+                                    if key in self.ids_label_dict:
+                                        alabel = self.ids_label_dict[key]
+                                        labels.append(id[:2] + alabel)
+                                        break
 
 
 if __name__ == '__main__':
