@@ -42,6 +42,8 @@ class DataIntegration:
         self.label_idx_dict, self.ids_label_dict = self.construct_interaction_dict(label_idx)
         self.trigger_argument_type_dict = self.construct_structure_dict()
 
+        self.construct_dataset(index=0)
+
     def initialize_data(self):
         """
         read data.
@@ -269,38 +271,56 @@ class DataIntegration:
         positions = []
         labels = []
 
+        sen_num = 0
+
         for tri_labels, entity_labels, ids, offsets in zip(self.data[index], self.data[2],
                                                            self.data[3], self.data[4]):
             for i, tri_label in enumerate(tri_labels):
-                if tri_label == "O":
-                    continue
 
                 event = tri_label.split("-")[1]
-                if event in self.all_tri_type:
-                    if tri_label[0] == "B":
-                        pass
-                    else:   # S
-                        trigger_words.append()  # ---
-                        trigger_types.append(event)
-                        tids = ids[i][2:].split("*") # a list, contains all ids of current trigger candidate.
 
-                        for tid in tids:
-                            for j, id in enumerate(ids):
+                if tri_label == "O" or event in self.all_tri_type:
+                    continue
 
-                                sentence_words.append()  # ---
+                #  need generate a new ==============
+                current_trigger_words = [i]
+                current_trigger_types = event
+                current_sentence_words = sen_num
+                current_positions = [i]
 
-                                if id == "O" or i == j:
-                                    labels.append()  # ---
-                                    continue
+                current_labels = ["O"] * 125
 
-                                temp = id[2:].split("*")
+                tids = ids[i][2:].split("*")  # a list, contains all ids of current trigger candidate.
 
-                                for aid in temp:
-                                    key = tid + aid
-                                    if key in self.ids_label_dict:
-                                        alabel = self.ids_label_dict[key]
-                                        labels.append(id[:2] + alabel)
-                                        break
+                for tid in tids:
+                    for j, id in enumerate(ids):
+
+                        if id == "O" or i == j:
+                            # current_labels.append("O")  # ---
+                            continue
+
+                        temp = id[2:].split("*")
+
+                        for aid in temp:
+                            key = tid + aid
+                            if key in self.ids_label_dict:
+                                alabel = self.ids_label_dict[key]
+                                current_labels[j] = id[:2] + str(alabel)
+                                break
+
+                print(current_labels)
+
+                if tri_label[0] == "I" or tri_label[0] == "E":
+                    trigger_words[-1] = trigger_words[-1] + current_trigger_words
+                    positions[-1] = positions[-1] + current_positions
+                else:
+                    trigger_words.append(current_trigger_words)
+                    trigger_types.append(current_trigger_types)
+                    sentence_words.append(current_sentence_words)
+                    positions.append(current_positions)
+                    labels.append(current_labels)
+
+            sen_num += 1
 
 
 if __name__ == '__main__':
