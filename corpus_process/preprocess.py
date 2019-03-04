@@ -37,6 +37,7 @@ class PreProcessor:
         # -------------- word and entity label --------------- #
         self.triggers = []
         self.entities = []
+        self.entitiy_index = []
         # ---------------------------------------------------- #
 
         # -------------- entity and tri offsets -------------- #
@@ -166,6 +167,7 @@ class PreProcessor:
         wf = open(self.output_dir + "entity_inputs.pk", 'wb')
         pickle.dump(np.array(self.entities), wf)
         wf.close()
+        print(np.shape(self.entities))
 
         wf = open(self.output_dir + "trigger_inputs.pk", 'wb')
         pickle.dump(np.array(self.triggers), wf)
@@ -188,7 +190,11 @@ class PreProcessor:
         wf.close()
 
         wf = open(self.output_dir + "duplicated_ids.pk", 'wb')
-        pickle.dump(np.array(self.duplicated_tri), wf)
+        pickle.dump(self.duplicated_tri, wf)
+        wf.close()
+
+        wf = open(self.output_dir + "entity_index.pk", 'wb')
+        pickle.dump(self.entitiy_index, wf)
         wf.close()
 
         print("finish.")
@@ -201,7 +207,7 @@ class PreProcessor:
         self.read_word_idx()
         self.read_duplicated_ids()
 
-        # self.get_entity_inputs()
+        self.get_entity_inputs()
         # self.get_trigger_inputs()
 
         self.write_data()
@@ -234,11 +240,11 @@ class PreProcessor:
         entity_class_idx, _ = self.read_ids(entity_ids_file)
 
         for index, line in enumerate(self.entities):
-            self.entities[index] = [entity_class_idx[x] for x in line]
+            self.entitiy_index.append([entity_class_idx[x] for x in line])
 
         k = int(entity_class_idx["O"])
 
-        self.entities = pad_sequences(self.entities, maxlen=self.max_len, value=k, padding='post')
+        self.entitiy_index = pad_sequences(self.entitiy_index, maxlen=self.max_len, value=k, padding='post')
 
     def get_trigger_inputs(self):
         """
