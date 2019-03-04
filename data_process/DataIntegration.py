@@ -1,8 +1,9 @@
 import collections
 import pickle
+import numpy as np
 
 Interactions = collections.namedtuple('Interactions', ['e1s', 'e2s', 'type'])
-data_set = collections.namedtuple('data_set', ['true_tri_labels', 'predicted_tri_labels', 'entity_labels', 'ids', 'offsets'])
+data_set = collections.namedtuple('data_set', ['true_tri_labels', 'predicted_tri_labels', 'entity_labels', 'ids', 'offsets', 'sentences'])
 
 
 class DataIntegration:
@@ -71,6 +72,10 @@ class DataIntegration:
         entity_labels = pickle.load(rf)
         rf.close()
 
+        rf = open(self.data_dir + "word_inputs.pk", 'rb')
+        sentences = pickle.load(rf)
+        rf.close()
+
         # ------------- get BIO based id label of the sentences -------------
         rf = open(self.data_dir + "trigger_offsets.pk", 'rb')
         trigger_offsets_ids = pickle.load(rf)
@@ -133,7 +138,7 @@ class DataIntegration:
                     # print(id_labels[i][j])
             # if signal:
             #     print(id_labels[i])
-        self.data = data_set(true_tri_labels, predicted_tri_labels, entity_labels, id_labels, offsets)
+        self.data = data_set(true_tri_labels, predicted_tri_labels, entity_labels, id_labels, offsets, sentences)
 
         return None
 
@@ -263,6 +268,10 @@ class DataIntegration:
 
         return trigger_argument_type_dict
 
+    def __call__(self, *args, **kwargs):
+        trigger_words, trigger_types, sentence_words, positions, labels = self.construct_dataset(index=0)
+        self.dataset2inputs(trigger_words, trigger_types, sentence_words, positions, labels)
+
     def construct_dataset(self, index=0):
 
         trigger_words = []
@@ -276,13 +285,16 @@ class DataIntegration:
         for tri_labels, entity_labels, ids, offsets in zip(self.data[index], self.data[2],
                                                            self.data[3], self.data[4]):
             for i, tri_label in enumerate(tri_labels):
+                # print(tri_label)
 
-                event = tri_label.split("-")[1]
-
-                if tri_label == "O" or event in self.all_tri_type:
+                if tri_label == "O":
                     continue
 
-                #  need generate a new ==============
+                event = tri_label.split("-")[1]
+                if event not in self.all_tri_type:
+                    continue
+
+                #  need generate a new line==============
                 current_trigger_words = [i]
                 current_trigger_types = event
                 current_sentence_words = sen_num
@@ -322,7 +334,41 @@ class DataIntegration:
 
             sen_num += 1
 
+        return trigger_words, trigger_types, sentence_words, positions, labels
+
+    def dataset2inputs(self, trigger_words, trigger_types, sentence_words, positions, labels):
+
+        rf = open(self.data_dir + "entity_index.pk", 'rb')
+        entity_index = pickle.load(rf)
+        rf.close()
+
+        sentence_words_input = []
+        sentence_entity_inputs = []
+
+        max_trigger_len = -1
+
+        trigger_type_idx = {}
+        for i, type in enumerate(self.all_tri_type):
+            trigger_type_idx[type] = i
+
+        for i, type in enumerate(trigger_types):
+            trigger_types[i] = trigger_type_idx[type]
+
+        for current_trigger_words, sentence_index in zip(trigger_words, sentence_words):
+            sentence_words_input.append(self.data[-1][sentence_index][:])
+            sentence_entity_inputs.append(entity_index[sentence_index][:])
+
+            if len(current_trigger_words) > max_trigger_len:
+                max_trigger_len = len(current_trigger_words)
+
+            for i, current_trigger_word in enumerate(current_trigger_words):
+                current_trigger_words[i] = self.data[-1][sentence_index][i]
+
+        print(np.shape(sentence_words_input))
+        print(np.shape(sentence_entity_inputs))
+
 
 if __name__ == '__main__':
     di_train = DataIntegration(train=True)
-    di_test = DataIntegration(train=False, label_idx=di_train.label_idx_dict)
+    # di_test = DataIntegration(train=False, label_idx=di_train.label_idx_dict)
+    di_train()
