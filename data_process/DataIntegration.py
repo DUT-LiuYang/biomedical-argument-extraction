@@ -1,6 +1,7 @@
 import collections
 import pickle
 import numpy as np
+from keras.preprocessing.sequence import pad_sequences
 
 Interactions = collections.namedtuple('Interactions', ['e1s', 'e2s', 'type'])
 data_set = collections.namedtuple('data_set', ['true_tri_labels', 'predicted_tri_labels', 'entity_labels', 'ids', 'offsets', 'sentences'])
@@ -12,6 +13,9 @@ class DataIntegration:
                     "Transcription", "Dephosphorylation", "Development", "Blood_vessel_development",
                     "Catabolism", "Negative_regulation", "Remodeling", "Breakdown", "Localization",
                     "Synthesis", "Death", "Planned_process", "Growth", "Phosphorylation"]
+
+    arg_idx = {"O": 0}
+    arg_num = 1
 
     def __init__(self, train, label_idx=None):
         # ------------- dirs used in this part --------------- #
@@ -320,7 +324,7 @@ class DataIntegration:
                                 current_labels[j] = id[:2] + str(alabel)
                                 break
 
-                print(current_labels)
+                # print(current_labels)
 
                 if tri_label[0] == "I" or tri_label[0] == "E":
                     trigger_words[-1] = trigger_words[-1] + current_trigger_words
@@ -363,12 +367,72 @@ class DataIntegration:
 
             for i, current_trigger_word in enumerate(current_trigger_words):
                 current_trigger_words[i] = self.data[-1][sentence_index][i]
+        print(labels[0])
+        for line in labels:
+            for i, label in enumerate(line):
+                if label not in self.arg_idx.keys():
+                    if self.train:
+                        self.arg_idx[label] = self.arg_num
+                        line[i] = [0] * 28
+                        line[i][self.arg_num] = 1
+                        self.arg_num += 1
+                    else:
+                        print("###" + label)
+                else:
+                    line[i] = [0] * 28
+                    line[i][self.arg_idx[label]] = 1
 
+        positions = self.get_position_inputs(positions)
+
+        print(np.shape(positions))
+
+        print(self.arg_num)
+
+        # ---- need check data type of each variable.
         print(np.shape(sentence_words_input))
         print(np.shape(sentence_entity_inputs))
+        print(np.shape(trigger_types))
+        print(np.shape(trigger_words))
+        print(np.shape(labels))
+
+        print(sentence_words_input[0])
+        print(sentence_entity_inputs[0])
+        print(trigger_types[0])
+        print(trigger_words[0])
+        print(labels[0][4])
+
+        print("max length of trigger word is " + str(max_trigger_len))
+        trigger_words = pad_sequences(trigger_words, value=0, padding='post', maxlen=5)
+        print(trigger_words[0])
+        print(np.shape(trigger_words))
+
+        return sentence_words_input, sentence_entity_inputs, trigger_words, trigger_types, labels
+
+    def get_position_inputs(self, positions):
+
+        res = []
+
+        for i, position in enumerate(positions):
+            res.append([1] * 125)
+
+            left = position[0]
+            right = position[-1]
+
+            for index in position:
+                res[i][index] = 0
+
+            for j in range(left):
+                res[i][j] = left - j
+
+            for j in range(124 - right):
+                res[i][right + j + 1] = j + 1
+
+        return res
 
 
 if __name__ == '__main__':
     di_train = DataIntegration(train=True)
-    # di_test = DataIntegration(train=False, label_idx=di_train.label_idx_dict)
     di_train()
+
+    di_test = DataIntegration(train=False, label_idx=di_train.label_idx_dict)
+    di_test()
