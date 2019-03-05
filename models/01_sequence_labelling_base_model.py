@@ -14,7 +14,7 @@ class BaseModel:
         self.dir = "../inputs/"
         self.embedding_dir = "../resource/embedding_matrix.pk"
         self.entity_embedding_dir = "../resource/entity_type_matrix.pk"
-        self.index_ids_file = "tri_index_ids.pk"
+        # self.index_ids_file = "tri_index_ids.pk"
 
         # some basic parameters of the model
         self.model = None
@@ -27,8 +27,11 @@ class BaseModel:
         self.embedding_matrix = BaseModel.load_pickle(self.embedding_dir)
         self.entity_embedding_matrix = BaseModel.load_pickle(self.entity_embedding_dir)
         self.embedding_trainable = False
+
         self.EMBEDDING_DIM = 200
         self.ENTITY_TYPE_VEC_DIM = 50
+        self.TRIGGER_TYPE_VEC_DIM = 50
+        self.POSITION_VEC_DIM = 50
 
         # inputs to the model
         self.use_development_set = use_development_set
@@ -43,6 +46,7 @@ class BaseModel:
          self.dev_trigger_types, self.dev_positions, self.dev_labels] = [None] * 6
 
         # if you want to use development set, this part can help you to split the development set from the train set.
+        # not provide this yet.
         if self.use_development_set:
             self.split_train_set()
 
@@ -135,8 +139,11 @@ class BaseModel:
         print(np.shape(self.dev_word_inputs))
 
     def compile_model(self):
-        self.sen_input, self.entity_type_input = self.make_input()
-        self.sen_embedding, self.entity_embedding = self.embedded()
+        [self.sen_input, self.entity_type_input, self.position_input,
+         self.trigger_input, self.trigger_type_input] = self.make_input()
+
+        [self.sen_embedding, self.entity_embedding, self.position_embedding,
+         self.trigger_embedding, self.trigger_type_embedding] = self.embedded()
 
         self.output = self.build_model()
 
@@ -177,4 +184,28 @@ class BaseModel:
                                            mask_zero=True)
         entity_embedding = entity_embedding_layer(self.entity_type_input)
 
-        return [sentence_embedding, entity_embedding]
+        position_embedding_layer = Embedding(125,
+                                             self.POSITION_VEC_DIM,
+                                             # weights=[self.entity_embedding_matrix],
+                                             input_length=self.max_len,
+                                             trainable=True,
+                                             mask_zero=False)
+        position_embedding = position_embedding_layer(self.position_input)
+
+        trigger_embedding_layer = Embedding(19,
+                                            self.EMBEDDING_DIM,
+                                            # weights=[self.entity_embedding_matrix],
+                                            input_length=self.max_len,
+                                            trainable=True,
+                                            mask_zero=True)
+        trigger_embedding = trigger_embedding_layer(self.trigger_input)
+
+        trigger_type_embedding_layer = Embedding(28,
+                                                 self.TRIGGER_TYPE_VEC_DIM,
+                                                 # weights=[self.entity_embedding_matrix],
+                                                 input_length=1,
+                                                 trainable=True,
+                                                 mask_zero=False)
+        trigger_type_embedding = trigger_type_embedding_layer(self.trigger_type_input)
+
+        return [sentence_embedding, entity_embedding, position_embedding, trigger_embedding, trigger_type_embedding]
