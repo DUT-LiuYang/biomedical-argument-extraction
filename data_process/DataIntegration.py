@@ -19,13 +19,16 @@ class DataIntegration:
 
     def __init__(self, train, label_idx=None):
         # ------------- dirs used in this part --------------- #
+
         self.resource_dir = "../resource/"
+
+        self.output_dir = "../inputs/"
         self.data_dir = "../data/"
         if train:
-            # self.resource_dir += "train_"
+            self.output_dir += "train_"
             self.data_dir += "train_"
         else:
-            # self.resource_dir += "test_"
+            self.output_dir += "test_"
             self.data_dir += "test_"
         self.train = train
         # ---------------------------------------------------- #
@@ -46,8 +49,6 @@ class DataIntegration:
 
         self.label_idx_dict, self.ids_label_dict = self.construct_interaction_dict(label_idx)
         self.trigger_argument_type_dict = self.construct_structure_dict()
-
-        self.construct_dataset(index=0)
 
     def initialize_data(self):
         """
@@ -274,7 +275,31 @@ class DataIntegration:
 
     def __call__(self, *args, **kwargs):
         trigger_words, trigger_types, sentence_words, positions, labels = self.construct_dataset(index=0)
-        self.dataset2inputs(trigger_words, trigger_types, sentence_words, positions, labels)
+        sentence_words_input, sentence_entity_inputs, trigger_words, trigger_types, positions, labels = self.dataset2inputs(trigger_words, trigger_types, sentence_words, positions, labels)
+
+        wf = open(self.output_dir + "sentence_words_input.pk", 'wb')
+        pickle.dump(np.array(sentence_words_input), wf)
+        wf.close()
+
+        wf = open(self.output_dir + "sentence_entity_inputs.pk", 'wb')
+        pickle.dump(np.array(sentence_entity_inputs), wf)
+        wf.close()
+
+        wf = open(self.output_dir + "trigger_words.pk", 'wb')
+        pickle.dump(np.array(trigger_words), wf)
+        wf.close()
+
+        wf = open(self.output_dir + "trigger_types.pk", 'wb')
+        pickle.dump(np.array(trigger_types), wf)
+        wf.close()
+
+        wf = open(self.output_dir + "positions.pk", 'wb')
+        pickle.dump(np.array(positions), wf)
+        wf.close()
+
+        wf = open(self.output_dir + "labels.pk", 'wb')
+        pickle.dump(np.array(labels), wf)
+        wf.close()
 
     def construct_dataset(self, index=0):
 
@@ -406,7 +431,7 @@ class DataIntegration:
         print(trigger_words[0])
         print(np.shape(trigger_words))
 
-        return sentence_words_input, sentence_entity_inputs, trigger_words, trigger_types, labels
+        return sentence_words_input, sentence_entity_inputs, trigger_words, trigger_types, positions, labels
 
     def get_position_inputs(self, positions):
 
