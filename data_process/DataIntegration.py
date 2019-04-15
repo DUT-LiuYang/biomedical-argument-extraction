@@ -14,7 +14,14 @@ class DataIntegration:
                     "Catabolism", "Negative_regulation", "Remodeling", "Breakdown", "Localization",
                     "Synthesis", "Death", "Planned_process", "Growth", "Phosphorylation"]
 
+    all_entity_type = ["Amino_acid", "Anatomical_system", "Cancer", "Cell", "Cellular_component",
+                       "DNA_domain_or_region", "Developing_anatomical_structure", "Drug_or_compound",
+                       "Gene_or_gene_product", "Immaterial_anatomical_entity", "Multi-tissue_structure",
+                       "Organ", "Organism", "Organism_subdivision", "Organism_substance", "Pathological_formation",
+                       "Protein_domain_or_region", "Simple_chemical", "Tissue"]
+
     arg_idx = {"O": 0}
+    idx_arg = {0: "O"}
     arg_num = 1
 
     def __init__(self, train, label_idx=None):
@@ -28,7 +35,7 @@ class DataIntegration:
             self.output_dir += "train_"
             self.data_dir += "train_"
         else:
-            self.output_dir += "test_"
+            self.output_dir += "real_test_"
             self.data_dir += "test_"
         self.train = train
         # ---------------------------------------------------- #
@@ -48,7 +55,20 @@ class DataIntegration:
         self.initialize_data()
 
         self.label_idx_dict, self.ids_label_dict = self.construct_interaction_dict(label_idx)
+        self.label_idx_dict["O"] = 0
+
         self.trigger_argument_type_dict = self.construct_structure_dict()
+
+        self.trigger_entity_type_idx = {}
+        for i, type in enumerate(self.all_tri_type):
+            self.trigger_entity_type_idx[type] = i
+
+        i = len(self.trigger_entity_type_idx)
+        for type in self.all_entity_type:
+            self.trigger_entity_type_idx[type] = i
+            i += 1
+
+        print("=== " + str(len(self.trigger_entity_type_idx)) + " ===")
 
     def initialize_data(self):
         """
@@ -119,26 +139,61 @@ class DataIntegration:
 
         # print(str(self.duplicated_dict.keys()))
 
+        # -----
         for i, sen in enumerate(id_labels):
             signal = False
-            for j, id in enumerate(sen):
 
+            j = 0
+            # print(sen)
+            while j < len(sen):
+                # print(j)
+                # print(sen[j])
+            # for j, id in enumerate(sen):
+                id = sen[j]
                 if id == "O":
+                    j += 1
                     continue
 
-                offset = offsets[i][j]
+                if id[0] == "S":
+                    offset = offsets[i][j]
 
-                if offset in self.duplicated_dict.keys():
-                    signal = True
+                    if offset in self.duplicated_dict.keys():
+                        signal = True
+                        # print(offset)
+                        index = id.find(".e")
+                        sen_id = id[2:index]
+
+                        duplicated_ids = self.duplicated_dict[offset]
+                        for did in duplicated_ids:
+                            # print(id_labels[i][j] + " " + sen_id)
+                            if sen_id in did:
+                                id_labels[i][j] += "*" + did
+                    j += 1
+                elif id[0] == "B":
+                    # print(id)
+                    k = j + 1
+                    while k < len(sen) and (sen[k][0] == "I" or sen[k][0] == "E"):
+                        k += 1
+                    offset = offsets[i][j].split("-")[0] + "-" + offsets[i][k - 1].split("-")[1]
                     # print(offset)
-                    index = id.find(".e")
-                    sen_id = id[2:index]
+                    if offset in self.duplicated_dict.keys():
+                        signal = True
 
-                    duplicated_ids = self.duplicated_dict[offset]
-                    for did in duplicated_ids:
-                        # print(id_labels[i][j] + " " + sen_id)
-                        if sen_id in did:
-                            id_labels[i][j] += "*" + did
+                        index = id.find(".e")
+                        sen_id = id[2:index]
+
+                        duplicated_ids = self.duplicated_dict[offset]
+                        for did in duplicated_ids:
+                            # print(did)
+                            # print(id_labels[i][j] + " " + sen_id)
+                            if sen_id in did:
+                                t = j
+                                while t < k:
+                                    id_labels[i][t] += "*" + did
+                                    t += 1
+                    j = k
+                else:
+                    j += 1
                             # print(id_labels[i][j] + "+")
                     # print(id_labels[i][j])
             # if signal:
@@ -274,31 +329,54 @@ class DataIntegration:
         return trigger_argument_type_dict
 
     def __call__(self, *args, **kwargs):
-        trigger_words, trigger_types, sentence_words, positions, labels = self.construct_dataset(index=0)
-        sentence_words_input, sentence_entity_inputs, trigger_words, trigger_types, positions, labels = self.dataset2inputs(trigger_words, trigger_types, sentence_words, positions, labels)
+
+        if self.train:
+            [position_t, position_a, trigger_type, entity_type, sentence_idx, labels] = self.construct_relation_dataset(index=0)
+        else:
+            [position_t, position_a, trigger_type, entity_type, sentence_idx, labels] = self.construct_relation_test_dataset(index=1)
+
+        [sentence_words_input, sentence_entity_inputs, trigger_type,
+         entity_type, position_t, position_a,
+         position_mt, position_ma] = self.dataset2relation_inputs(position_t, position_a, trigger_type, entity_type, sentence_idx)
 
         wf = open(self.output_dir + "sentence_words_input.pk", 'wb')
-        pickle.dump(np.array(sentence_words_input), wf)
+        pickle.dump(sentence_words_input, wf)
         wf.close()
 
         wf = open(self.output_dir + "sentence_entity_inputs.pk", 'wb')
-        pickle.dump(np.array(sentence_entity_inputs), wf)
+        pickle.dump(sentence_entity_inputs, wf)
         wf.close()
 
-        wf = open(self.output_dir + "trigger_words.pk", 'wb')
-        pickle.dump(np.array(trigger_words), wf)
+        wf = open(self.output_dir + "position_t.pk", 'wb')
+        pickle.dump(position_t, wf)
         wf.close()
 
-        wf = open(self.output_dir + "trigger_types.pk", 'wb')
-        pickle.dump(np.array(trigger_types), wf)
+        wf = open(self.output_dir + "position_a.pk", 'wb')
+        pickle.dump(position_a, wf)
         wf.close()
 
-        wf = open(self.output_dir + "positions.pk", 'wb')
-        pickle.dump(np.array(positions), wf)
+        wf = open(self.output_dir + "position_mt.pk", 'wb')
+        pickle.dump(position_mt, wf)
+        wf.close()
+
+        wf = open(self.output_dir + "position_ma.pk", 'wb')
+        pickle.dump(position_ma, wf)
+        wf.close()
+
+        wf = open(self.output_dir + "trigger_type.pk", 'wb')
+        pickle.dump(trigger_type, wf)
+        wf.close()
+
+        wf = open(self.output_dir + "entity_type.pk", 'wb')
+        pickle.dump(entity_type, wf)
         wf.close()
 
         wf = open(self.output_dir + "labels.pk", 'wb')
-        pickle.dump(np.array(labels), wf)
+        pickle.dump(labels, wf)
+        wf.close()
+
+        wf = open("../inputs/label_idx_dict.pk", 'wb')
+        pickle.dump(self.label_idx_dict, wf)
         wf.close()
 
     def construct_dataset(self, index=0):
@@ -398,10 +476,12 @@ class DataIntegration:
                 if label not in self.arg_idx.keys():
                     if self.train:
                         self.arg_idx[label] = self.arg_num
+                        self.idx_arg[self.arg_num] = label
                         line[i] = [0] * 28
                         line[i][self.arg_num] = 1
                         self.arg_num += 1
                     else:
+                        line[i] = [0] * 28
                         print("###" + label)
                 else:
                     line[i] = [0] * 28
@@ -409,22 +489,23 @@ class DataIntegration:
 
         positions = self.get_position_inputs(positions)
 
-        print(np.shape(positions))
-
-        print(self.arg_num)
+        print(len(self.arg_idx))
+        print("@@@" + str(self.arg_num))
 
         # ---- need check data type of each variable.
         print(np.shape(sentence_words_input))
         print(np.shape(sentence_entity_inputs))
         print(np.shape(trigger_types))
         print(np.shape(trigger_words))
+        print(np.shape(positions))
         print(np.shape(labels))
-
+        print("---------------------------------------")
         print(sentence_words_input[0])
         print(sentence_entity_inputs[0])
         print(trigger_types[0])
         print(trigger_words[0])
         print(labels[0][4])
+        print(positions[0])
 
         print("max length of trigger word is " + str(max_trigger_len))
         trigger_words = pad_sequences(trigger_words, value=0, padding='post', maxlen=5)
@@ -453,6 +534,321 @@ class DataIntegration:
                 res[i][right + j + 1] = j + 1
 
         return res
+
+    def construct_relation_dataset(self, index=0):
+        position_t = []
+        position_a = []
+
+        trigger_type = []
+        entity_type = []
+
+        sentence_idx = []
+        labels = []
+
+        sen_num = 0
+
+        arg_sum = [0] * 9
+
+        print(self.data[3][22])
+        print(self.data[index][22])
+        print(self.data[2][22])
+        for tri_labels, entity_labels, ids, offsets in zip(self.data[index], self.data[2],
+                                                           self.data[3], self.data[4]):
+            for i, tri_label in enumerate(tri_labels):
+
+                if tri_label == "O" or tri_label[0] == "I" or tri_label[0] == "E":
+                    continue
+
+                event = tri_label.split("-")[1]
+                if event not in self.all_tri_type:
+                    continue
+
+                tids = ids[i][2:].split("*")  # a list, contains all ids of current trigger candidate.
+
+                for j, id in enumerate(ids):
+                    if id == "O" or id[0] == "I" or id[0] == "E" or i == j:
+                        continue
+
+                    if tri_labels[j] != "O":
+                        entity = tri_labels[j][2:]
+                    else:
+                        entity = entity_labels[j][2:]
+
+                    if entity not in self.all_tri_type and entity not in self.all_entity_type:
+                        continue
+
+                    if entity not in self.trigger_argument_type_dict[event]:
+                        continue
+
+                    # labels.append([0] * 9)
+                    label = 0
+
+                    eids = id[2:].split("*")
+
+                    for tid in tids:
+                        for eid in eids:
+                            key = tid + eid
+                            if key in self.ids_label_dict:
+                                label = self.ids_label_dict[key]
+                                # current_labels[j] = id[:2] + str(alabel)
+                                break
+
+                    # label
+                    temp = [0] * 9
+                    temp[label] = 1
+                    labels.append(temp[:])
+                    arg_sum[label] += 1
+
+                    # positions
+                    temp = [i]
+                    if tri_label[0] == "B":
+                        k = i + 1
+                        while ids[k][0] == "I" or ids[k][0] == "E":
+                            temp.append(k)
+                            k += 1
+
+                    position_t.append(temp[:])
+
+                    temp = [j]
+                    if id[0] == "B":
+                        k = j + 1
+                        while ids[k][0] == "I" or ids[k][0] == "E":
+                            temp.append(k)
+                            k += 1
+
+                    position_a.append(temp[:])
+
+                    # types
+                    trigger_type.append(tri_label[2:])
+                    if tri_labels[j] != "O":
+                        entity_type.append(tri_labels[j][2:])
+                    else:
+                        entity_type.append(entity_labels[j][2:])
+
+                    sentence_idx.append(sen_num)
+
+            sen_num += 1
+
+        for num in arg_sum:
+            print(num)
+
+        return position_t, position_a, trigger_type, entity_type, sentence_idx, np.array(labels)
+
+    def dataset2relation_inputs(self, position_t, position_a, trigger_type, entity_type, sentence_idx):
+        rf = open(self.data_dir + "entity_index.pk", 'rb')
+        entity_index = pickle.load(rf)
+        rf.close()
+
+        sentence_words_input = []
+        sentence_entity_inputs = []
+
+        max_trigger_len = max_entity_len = -1
+
+        for i, type in enumerate(trigger_type):
+            trigger_type[i] = [self.trigger_entity_type_idx[type]]
+            entity_type[i] = [self.trigger_entity_type_idx[entity_type[i]]]
+            sentence_words_input.append(self.data[-1][sentence_idx[i]][:])
+            sentence_entity_inputs.append(entity_index[sentence_idx[i]][:])
+
+            if len(position_t[i]) > max_trigger_len:
+                max_trigger_len = len(position_t[i])
+
+            if len(position_a[i]) > max_entity_len:
+                max_entity_len = len(position_a[i])
+
+        position_mt = self.get_position_mask(position_t)
+        position_ma = self.get_position_mask(position_a)
+
+        position_t = self.get_position_inputs(position_t)
+        position_a = self.get_position_inputs(position_a)
+
+        res = [np.array(sentence_words_input), np.array(sentence_entity_inputs), np.array(trigger_type),
+               np.array(entity_type), np.array(position_t), np.array(position_a),
+               np.array(position_mt), np.array(position_ma)]
+
+        for x in res:
+            print(np.shape(x))
+
+        print(sentence_words_input[41])
+        print(position_t[41])
+        print(position_a[41])
+        print(position_mt[41])
+        print(position_ma[41])
+
+        return res
+
+    def get_position_mask(self, positions):
+        res = []
+
+        for position in positions:
+            res.append([0] * 125)
+
+            for p in position:
+                res[-1][p] = 1
+
+        return res
+
+    def construct_relation_test_dataset(self, index=1):
+        position_t = []
+        position_a = []
+
+        trigger_type = []
+        entity_type = []
+
+        sentence_idx = []
+        labels = []
+
+        sen_num = 0
+
+        arg_sum = [0] * 9
+        confusing_num = 0
+
+        for tri_labels, entity_labels, ids, offsets in zip(self.data[index], self.data[2],
+                                                           self.data[3], self.data[4]):
+            for i, tri_label in enumerate(tri_labels):
+
+                if tri_label == "O" or tri_label[0] == "I" or tri_label[0] == "E":
+                    continue
+
+                event = tri_label.split("-")[1]
+                if event not in self.all_tri_type:
+                    continue
+
+                signal = False
+                if ids[i] == "O":
+                    signal = True
+                else:
+                    tids = ids[i][2:].split("*")  # a list, contains all ids of current trigger candidate.
+
+                for j, e_label in enumerate(tri_labels):
+                    if e_label == "O" or e_label[0] == "I" or e_label[0] == "E" or i == j:
+                        continue
+
+                    entity = tri_labels[j][2:]
+
+                    if entity not in self.all_tri_type:
+                        continue
+
+                    if entity not in self.trigger_argument_type_dict[event]:
+                        continue
+
+                    label = 0
+
+                    if ids[j] != "O":
+                        eids = ids[j][2:].split("*")
+                    else:
+                        eids = None
+
+                    if signal or eids is None:
+                        confusing_num += 1
+                        label = 0
+                    else:
+                        for tid in tids:
+                            for eid in eids:
+                                key = tid + eid
+                                if key in self.ids_label_dict:
+                                    label = self.ids_label_dict[key]
+                                    # current_labels[j] = id[:2] + str(alabel)
+                                    break
+
+                    # label
+                    temp = [0] * 9
+                    temp[label] = 1
+                    labels.append(temp[:])
+                    arg_sum[label] += 1
+
+                    # positions
+                    temp = [i]
+                    if tri_label[0] == "B":
+                        k = i + 1
+                        while ids[k][0] == "I" or ids[k][0] == "E":
+                            temp.append(k)
+                            k += 1
+
+                    position_t.append(temp[:])
+
+                    temp = [j]
+                    if tri_labels[j][0] == "B":
+                        k = j + 1
+                        while tri_labels[k][0] == "I" or tri_labels[k][0] == "E":
+                            temp.append(k)
+                            k += 1
+
+                    position_a.append(temp[:])
+
+                    # types
+                    trigger_type.append(tri_label[2:])
+                    entity_type.append(tri_labels[j][2:])
+
+                    sentence_idx.append(sen_num)
+
+                for j, e_label in enumerate(entity_labels):
+                    if e_label == "O" or e_label[0] == "I" or e_label[0] == "E" or i == j:
+                        continue
+
+                    entity = entity_labels[j][2:]
+
+                    if entity not in self.all_entity_type:
+                        continue
+
+                    if entity not in self.trigger_argument_type_dict[event]:
+                        continue
+
+                    label = 0
+
+                    eids = ids[j][2:].split("*")
+
+                    if signal:
+                        label = 0
+                        confusing_num += 1
+                    else:
+                        for tid in tids:
+                            for eid in eids:
+                                key = tid + eid
+                                if key in self.ids_label_dict:
+                                    label = self.ids_label_dict[key]
+                                    # current_labels[j] = id[:2] + str(alabel)
+                                    break
+
+                    # label
+                    temp = [0] * 9
+                    temp[label] = 1
+                    labels.append(temp[:])
+                    arg_sum[label] += 1
+
+                    # positions
+                    temp = [i]
+                    if tri_label[0] == "B":
+                        k = i + 1
+                        while ids[k][0] == "I" or ids[k][0] == "E":
+                            temp.append(k)
+                            k += 1
+
+                    position_t.append(temp[:])
+
+                    temp = [j]
+                    if tri_labels[j][0] == "B":
+                        k = j + 1
+                        while tri_labels[k][0] == "I" or tri_labels[k][0] == "E":
+                            temp.append(k)
+                            k += 1
+
+                    position_a.append(temp[:])
+
+                    # types
+                    trigger_type.append(tri_label[2:])
+                    entity_type.append(entity_labels[j][2:])
+
+                    sentence_idx.append(sen_num)
+
+            sen_num += 1
+
+        for num in arg_sum:
+            print(num)
+
+        print("confusing number: " + str(confusing_num))
+
+        return position_t, position_a, trigger_type, entity_type, sentence_idx, np.array(labels)
 
 
 if __name__ == '__main__':
