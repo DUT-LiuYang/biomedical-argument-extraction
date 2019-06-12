@@ -76,6 +76,20 @@ class EmbeddingReader(object):
     def __call__(self, *args, **kwargs):
         self.trim_word_embedding()
 
+    @staticmethod
+    def generate_embedding_matrix(num=74, vec_size=50):
+
+        entity_type_matrix = np.random.rand(num, vec_size)
+
+        wf = open("../data/trigger_type_matrix.txt", 'w', encoding='utf-8')
+        for i in range(len(entity_type_matrix)):
+            for j in range(len(entity_type_matrix[i])):
+                wf.write(str(entity_type_matrix[i][j]) + " ")
+            wf.write("\n")
+
+        wf.close()
+        return entity_type_matrix
+
 
 if __name__ == '__main__':
     e = EmbeddingReader()

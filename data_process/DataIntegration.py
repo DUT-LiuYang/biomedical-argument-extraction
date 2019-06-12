@@ -827,11 +827,15 @@ class DataIntegration:
                     position_t.append(temp[:])
 
                     temp = [j]
-                    if tri_labels[j][0] == "B":
+                    if entity_labels[j][0] == "B":
                         k = j + 1
-                        while tri_labels[k][0] == "I" or tri_labels[k][0] == "E":
+                        while entity_labels[k][0] == "I" or entity_labels[k][0] == "E":
                             temp.append(k)
                             k += 1
+
+                        if label != 0:
+                            print("###")
+                            print(temp)
 
                     position_a.append(temp[:])
 
