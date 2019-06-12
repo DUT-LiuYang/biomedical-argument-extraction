@@ -24,6 +24,28 @@ Event E2 (Type: Negative_regulation, Trigger: inhibited, Theme: Event E1, Cause:
 一般来说，识别要素的时候，需要将事件的参与者与所在事件的触发词对应起来。  
 本项目中，将对应后的触发词和事件参与者称作要素。
 
+## 模型介绍
+- relation_attention:         attention + type clues
+- relation_attention_b:       attention
+- relation_baseline:          sentence clues + type clues (inputs contain entity information)
+- relation_baseline_b:        sentence clues + type clues
+- relation_baseline_c:        sentence clues + type clues (inputs only contain word embeddings)
+- relation_interaction:       a mysterious model
+- relation_mask:              trigger + argument + type clues
+- relation_mask_attention:    attention + trigger + argument + type clues
+- relation_mask_b:            trigger + argument
+- relation_mask_c:            trigger + argument (no position embeddings)
+- relation_pure_attention:    attention
+- relation_pure_baseline:     sentence
+- relation_fusion:            a mysterious model
+- relation_fusion_b:          a mysterious model
+- ta_ty_attention:            同时使用语义信息和类型组合信息的多注意力机制
+
+## 运行方法
+原谅我的习惯，这次依然没有提供一键运行流程，但是运行依然很简单，
+先运行DataIntegration.py生成数据即可，接下来可以运行任意一个模型文件。
+
+
 ## 关于
 ```
 未来数据研究所.LiuYang
